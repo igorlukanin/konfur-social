@@ -14,18 +14,24 @@
     }
 
     .chart {
-      width: 90vw;
-      height: 90vh;
-      margin: 5vh 5vw;
+      width: 100vw;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .chart_hidden {
+      display: none;
     }
 
     .node text {
       fill: #999;
-      font-size: 15pt;
+      transition: fill 0.5s;
+      font-size: 13pt;
     }
 
     .node_selected text {
       fill: #fff;
+      transition: fill 0.5s;
     }
 
     .node_root text {
@@ -36,32 +42,319 @@
       fill: none;
       stroke: #fff;
       stroke-opacity: 0.25;
+      transition: stroke-opacity 0.5s;
       stroke-width: 1.5px;
     }
     
     .link_selected {
       stroke-opacity: 1;
+      transition: stroke-opacity 0.5s;
+    }
+
+    .title {
+      fill: #fff;
+      font-size: 30pt;
+    }
+
+    .expenses__box {
+      fill: none;
+    }
+
+    .expenses__subbox {
+      stroke: none;
+      opacity: 0.75;
+    }
+
+    .expenses__subbox_0_02 {
+      fill: #111;
+    }
+
+    .expenses__subbox_0_03 {
+      fill: #222;
+    }
+
+    .expenses__subbox_0_06 {
+      fill: #333;
+    }
+
+    .expenses__subbox_0_09 {
+      fill: #444;
+    }
+
+    .expenses__subbox_0_80 {
+      fill: #555;
+    }
+
+    .expenses__subbox__ratio {
+      fill: #fff;
+      font-size: 30pt;
+    }
+
+    .expenses__subbox__value {
+      fill: #ccc;
+      font-size: 20pt;
+    }
+
+    .hidden {
+      opacity: 0;
     }
   </style>
   <script src="https://d3js.org/d3.v4.min.js"></script>
 </head>
 <body>
   <svg class="chart chart_buns"></svg>
+  <svg class="chart chart_expenses"></svg>
   <script>
+  var expensesIntervalDelay = 2000;
+    var bunsIntervalDelay = 1000;
+
+  var expensesCounter = 0;
+  var expensesInterval;
+
+  var drawExpensesChart = function(show) {
+    if (!show) {
+      d3.select(".chart_expenses")
+        .classed("chart_hidden", true)
+        .html("");
+
+      if (expensesInterval !== undefined) {
+        clearInterval(expensesInterval);
+      }
+
+      return;
+    }
+
+    var svg = d3.select(".chart_expenses")
+          .classed("chart_hidden", false)
+          .html(""),
+        width = +svg.node().getBoundingClientRect().width,
+        height = +svg.node().getBoundingClientRect().height;
+
+    var title1 = svg.append("text")
+      .attr("dy", height * 0.11)
+      .attr("x", width / 2)
+      .classed("title", true)
+      .classed("hidden", true)
+      .style("text-anchor", "middle")
+      .text("На что тратит деньги компания?");
+
+    var title2 = svg.append("text")
+      .attr("dy", height * 0.11)
+      .attr("x", width / 2)
+      .classed("title", true)
+      .classed("hidden", true)
+      .style("text-anchor", "middle")
+      .text("На что тратит деньги Управление разработки?");
+
+    var box = svg.append("g")
+      .attr("transform", "translate(0, " + height * 0.2 + ")")
+      .attr("width", width)
+      .attr("height", height * 0.8)
+      .classed("expenses__box", true);
+
+    d3.json("expenses.json", function(error, raw) {
+      if (error) throw error;
+
+      var ratios = {
+        "0.13": ["контуровцев работают", "в Управлении разработки"],
+        "0.38": ["затрат компании", "на питание"],
+        "0.27": ["затрат компании", "на спорт, увлечения и мероприятия"]
+      };
+
+      var subboxes = {};
+      var texts = {};
+      var sum = 0;
+      var h = 0;
+
+      for (var i in raw) { if (raw.hasOwnProperty(i)) {
+        var subbox = box.append("g")
+          .attr("transform", "translate(" + (+box.attr("x") + box.attr("width") * sum) + ", 0)")
+          .attr("width", +box.attr("width") * +i)
+          .attr("height", +box.attr("height"))
+          .classed("hidden", true);
+
+        subbox.append("rect")
+          .attr("x", 0)
+          .attr("y", 0)
+          .attr("width", +subbox.attr("width"))
+          .attr("height", +subbox.attr("height"))
+          .classed("expenses__subbox", true)
+          .classed("expenses__subbox_" + i.replace('.', '_'), true);
+
+        sum += +i;
+        subboxes[i] = subbox;
+      }}
+
+      sum = 0;
+
+      for (i in raw) { if (raw.hasOwnProperty(i)) {
+        var number = +i * 100;
+        var dx = width / 100;
+
+        var text = box.append("text")
+          .attr("transform", "translate(" + (+box.attr("x") + box.attr("width") * sum) + ", 0)")
+          .attr("dy", +subbox.attr("height") * (2 + h) * 0.0475)
+          .style("text-anchor", "start")
+          .classed("hidden", true);
+
+        text.append("tspan")
+          .attr("dx", dx)
+          .classed("expenses__subbox__ratio", true)
+          .attr("x", 0)
+          .text(number + ' %');
+
+        raw[i].forEach(function(value) {
+          text.append("tspan")
+            .attr("dx", dx)
+            .classed("expenses__subbox__value", true)
+            .attr("x", 0)
+            .attr("dy", "1.25em")
+            .text(value);
+        });
+
+        sum += +i;
+        h += 2 + raw[i].length;
+        texts[i] = text;
+      }}
+
+      var ratioLines = {};
+      v = 0;
+
+      for (i in ratios) { if (ratios.hasOwnProperty(i)) {
+        var number = +i * 100;
+
+        var text = box.append("text")
+          .attr("transform", "translate(" + +box.attr("width") * 0.45 + ", " + +box.attr("height") * (1 * 0.0475 + v * 0.2) + ")")
+          .attr("dy", +box.attr("height") * 0.05)
+          .style("text-anchor", "start")
+          .classed("hidden", true);
+
+        text.append("tspan")
+          .attr("dx", dx)
+          .classed("expenses__subbox__ratio", true)
+          .attr("x", 0)
+          .text(number + ' %');
+
+        text.append("tspan")
+          .attr("dx", dx)
+          .classed("expenses__subbox__value", true)
+          .attr("x", 0)
+          .attr("dy", "1.25em")
+          .text(ratios[i][0]);
+
+        text.append("tspan")
+          .attr("dx", dx)
+          .classed("expenses__subbox__value", true)
+          .attr("x", 0)
+          .attr("dy", "1.25em")
+          .text(ratios[i][1]);
+
+        v++;
+        ratioLines[i] = text;
+      }}
+
+      var createFunc = function(k) {
+        return function() {
+          subboxes[k].classed("hidden", false);
+          texts[k].classed("hidden", false);
+        };
+      };
+
+      var createFunc2 = function(k) {
+        return function() {
+          ratioLines[k].classed("hidden", false);
+        };
+      };
+
+      var expensesSteps = [];
+
+      expensesSteps.push(function() {
+        title1.classed("hidden", false);
+      });
+
+      for (i in ratios) { if (ratios.hasOwnProperty(i)) {
+        expensesSteps.push(createFunc2(i));
+      }}
+
+      expensesSteps.push(function() {
+        for (i in ratios) { if (ratios.hasOwnProperty(i)) {
+          ratioLines[i].classed("hidden", true);
+        }}
+        
+        title1.classed("hidden", true);
+      });
+
+      expensesSteps.push(function() {
+        title2.classed("hidden", false);
+      });
+
+      for (var i in raw) { if (raw.hasOwnProperty(i)) {
+        expensesSteps.push(createFunc(i));
+      }}
+
+      expensesSteps.push(function() {
+        for (i in raw) { if (raw.hasOwnProperty(i)) {
+          subboxes[k].classed("hidden", true);
+          texts[k].classed("hidden", true);
+        }}
+      });
+
+      expensesSteps.push(function() {
+        title2.classed("hidden", true);
+        title1.classed("hidden", false);
+      });
+
+      var showExpensesStep = function() {
+        expensesSteps[expensesCounter]();
+
+        if (expensesCounter >= expensesSteps.length - 1) {
+          expensesCounter = 0;
+        }
+        else {
+          ++expensesCounter;
+        }
+      };
+
+      showExpensesStep();
+
+      expensesInterval = setInterval(showExpensesStep, expensesIntervalDelay);
+    });
+  };
+
   var bunsCounter = 0;
   var bunsInterval;
 
-  var drawBunsChart = function() {
-    var widthRatio = 0.4;
-    var bunsIntervalDelay = 1000;
+  var drawBunsChart = function(show) {
+    if (!show) {
+      d3.select(".chart_buns")
+        .classed("chart_hidden", true)
+        .html("");
 
-    var svg = d3.select(".chart_buns").html(""),
+      if (bunsInterval !== undefined) {
+        clearInterval(bunsInterval);
+      }
+
+      return;
+    }
+
+    var widthRatio = 0.4;
+
+    var svg = d3.select(".chart_buns")
+          .classed("chart_hidden", false)
+          .html(""),
         width = +svg.node().getBoundingClientRect().width,
         height = +svg.node().getBoundingClientRect().height,
-        g = svg.append("g").attr("transform", "translate(40,0)");
+        g = svg.append("g").attr("transform", "translate(0, " + height * 0.2 + ")");
+
+    var title = svg.append("text")
+      .attr("dy", height * 0.11)
+      .attr("x", width / 2)
+      .classed("title", true)
+      .style("text-anchor", "middle")
+      .text("Какие плюшки в Управлении разработки?");
 
     var tree = d3.cluster()
-        .size([height, width * widthRatio])
+        .size([height * 0.75, width * widthRatio])
         .separation(function(a, b) {
           return a.parent == b.parent ? 2 : 3;
         });
@@ -118,11 +411,7 @@
       var links = g.selectAll(".link_leaf");
       var leafs = g.selectAll(".node_leaf");
 
-      if (bunsInterval !== undefined) {
-        clearInterval(bunsInterval);
-      }
-
-      bunsInterval = setInterval(function() {
+      var highlightBun = function() {
         leafs.classed("node_selected", function(d, k) {
           if (bunsCounter == k) {
             for (var x in raw) { if (raw.hasOwnProperty(x)) {
@@ -147,16 +436,43 @@
         else {
           ++bunsCounter;
         }
-      }, bunsIntervalDelay);
+      };
+
+      highlightBun();
+
+      bunsInterval = setInterval(highlightBun, bunsIntervalDelay);
     });
   };
 
-  drawBunsChart();
+  var state = 0;
 
-  window.onresize = function() {
-    console.log(123);
-    drawBunsChart();
+  var redraw = function() {
+    var states = [
+      drawExpensesChart,
+      drawBunsChart
+    ];
+
+    states.forEach(function(s) {
+      s(false);
+    });
+
+    states[state](true);
   };
+
+  redraw();
+
+  document.onresize = redraw;
+  document.onfullscreenchange = redraw; // TODO: Fix
+
+  document.onkeydown = function(event) {
+    event = event || window.event;
+
+    if (event.keyCode == 49 || event.keyCode == 50) {
+      state = event.keyCode - 49;
+
+      redraw();
+    }
+};
   </script>
 </body>
 </html>
