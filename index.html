@@ -1,0 +1,162 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Социальная политика</title>
+  <meta charset="utf-8">
+  <style>
+    @import url('https://fonts.googleapis.com/css?family=PT+Sans');
+
+    body {
+      background-color: #000;
+      margin: 0;
+ 
+      font-family: 'PT Sans', 'Helvetica Neue', sans-serif;
+    }
+
+    .chart {
+      width: 90vw;
+      height: 90vh;
+      margin: 5vh 5vw;
+    }
+
+    .node text {
+      fill: #999;
+      font-size: 15pt;
+    }
+
+    .node_selected text {
+      fill: #fff;
+    }
+
+    .node_root text {
+      fill: none;
+    }
+    
+    .link_leaf {
+      fill: none;
+      stroke: #fff;
+      stroke-opacity: 0.25;
+      stroke-width: 1.5px;
+    }
+    
+    .link_selected {
+      stroke-opacity: 1;
+    }
+  </style>
+  <script src="http://d3js.org/d3.v4.min.js"></script>
+</head>
+<body>
+  <svg class="chart chart_buns"></svg>
+  <script>
+  var bunsCounter = 0;
+  var bunsInterval;
+
+  var drawBunsChart = function() {
+    var widthRatio = 0.4;
+    var bunsIntervalDelay = 1000;
+
+    var svg = d3.select(".chart_buns").html(""),
+        width = +svg.node().getBoundingClientRect().width,
+        height = +svg.node().getBoundingClientRect().height,
+        g = svg.append("g").attr("transform", "translate(40,0)");
+
+    var tree = d3.cluster()
+        .size([height, width * widthRatio])
+        .separation(function(a, b) {
+          return a.parent == b.parent ? 2 : 3;
+        });
+
+    var stratify = d3.stratify()
+        .id(function(d) { return d.name; })
+        .parentId(function(d) { return d.parent; });
+
+    d3.json("buns.json", function(error, raw) {
+      if (error) throw error;
+
+      var data = [{ name: "_", parent: "" }];
+
+      for (var i in raw) { if (raw.hasOwnProperty(i)) {
+        data.push({ name: i, parent: "_", size: raw[i].length });
+
+        raw[i].forEach(function(leaf) {
+          data.push({ name: leaf, parent: i });
+        });
+      }}
+
+      var root = stratify(data);
+
+      tree(root);
+
+      var link = g.selectAll(".link")
+          .data(root.descendants().slice(1))
+        .enter().append("path")
+          .classed("link", true)
+          .classed("link_leaf", function(d) { return !d.children; })
+          .attr("d", function(d) {
+            return "M" + d.y + "," + d.x
+                + "C" + (d.parent.y + 100) + "," + d.x
+                + " " + (d.parent.y + 100) + "," + d.parent.x
+                + " " + d.parent.y + "," + d.parent.x;
+          });
+
+      var node = g.selectAll(".node")
+          .data(root.descendants())
+        .enter().append("g")
+          .classed("node", true)
+          .classed("node_root", function(d) { return !d.parent; })
+          .classed("node_group", function(d) { return d.parent && d.children; })
+          .classed("node_leaf", function(d) { return !d.children; })
+          .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
+
+      node.append("text")
+          .attr("dy", 3)
+          .attr("x", function(d) { return d.children ? -8 : 8; })
+          .style("text-anchor", function(d) { return d.children ? "end" : "start"; })
+          .text(function(d) { return d.id; });
+
+      var groups = g.selectAll(".node_group");
+      var links = g.selectAll(".link_leaf");
+      var leafs = g.selectAll(".node_leaf");
+
+      if (bunsInterval !== undefined) {
+        clearInterval(bunsInterval);
+      }
+
+      bunsInterval = setInterval(function() {
+        leafs.classed("node_selected", function(d, k) {
+          if (bunsCounter == k) {
+            for (var x in raw) { if (raw.hasOwnProperty(x)) {
+              raw[x].forEach(function(leaf) { if (leaf == d.id) {
+                groups.classed("node_selected", function(d) {
+                  return d.id == x;
+                });
+              }});
+            }}
+          }
+
+          return bunsCounter == k;
+        });
+
+        links.classed("link_selected", function(d, k) {
+          return bunsCounter == k;
+        });
+
+        if (bunsCounter >= leafs.size() - 1) {
+          bunsCounter = 0;
+        }
+        else {
+          ++bunsCounter;
+        }
+      }, bunsIntervalDelay);
+    });
+  };
+
+  drawBunsChart();
+
+  window.onresize = function() {
+    console.log(123);
+    drawBunsChart();
+  };
+  </script>
+</body>
+</html>
