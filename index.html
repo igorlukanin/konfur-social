@@ -779,8 +779,8 @@
 
   redraw();
 
-  document.onresize = redraw;
-  document.onfullscreenchange = redraw; // TODO: Fix
+  window.onresize = redraw;
+  window.onfullscreenchange = redraw;
 
   document.onkeydown = function(event) {
     event = event || window.event;
