@@ -95,27 +95,50 @@
       font-size: 20pt;
     }
 
+    .expenses__subbox__value0 {
+      fill: #999;
+      font-size: 15pt;
+    }
+
     .hidden {
       opacity: 0;
+    }
+
+    .chart_employee {
+      transition: opacity 0.5s;
+    }
+
+    .area1 {
+      fill: #666;
+      opacity: 0.5;
+    }
+
+    .area2 {
+      fill: #666;
+      opacity: 0.5;
     }
   </style>
   <script src="https://d3js.org/d3.v4.min.js"></script>
 </head>
 <body>
+  <svg class="chart chart_expenses1"></svg>
+  <svg class="chart chart_expenses2"></svg>
   <svg class="chart chart_buns"></svg>
-  <svg class="chart chart_expenses"></svg>
   <script>
-  var expensesIntervalDelay = 2000;
-    var bunsIntervalDelay = 1000;
+  var expensesIntervalDelay = 1000;
+  var bunsIntervalDelay = 1000;
 
-  var expensesCounter = 0;
+  var expensesCounter1 = 0;
+  var expensesCounter2 = 0;
   var expensesInterval;
 
-  var drawExpensesChart = function(show) {
+  var drawExpensesChart1 = function(show) {
     if (!show) {
-      d3.select(".chart_expenses")
+      d3.select(".chart_expenses1")
         .classed("chart_hidden", true)
         .html("");
+
+      expensesCounter1 = 0;
 
       if (expensesInterval !== undefined) {
         clearInterval(expensesInterval);
@@ -124,14 +147,14 @@
       return;
     }
 
-    var svg = d3.select(".chart_expenses")
+    var svg = d3.select(".chart_expenses1")
           .classed("chart_hidden", false)
           .html(""),
         width = +svg.node().getBoundingClientRect().width,
         height = +svg.node().getBoundingClientRect().height;
 
     var title1 = svg.append("text")
-      .attr("dy", height * 0.11)
+      .attr("dy", height * 0.08)
       .attr("x", width / 2)
       .classed("title", true)
       .classed("hidden", true)
@@ -139,7 +162,7 @@
       .text("На что тратит деньги компания?");
 
     var title2 = svg.append("text")
-      .attr("dy", height * 0.11)
+      .attr("dy", height * 0.08)
       .attr("x", width / 2)
       .classed("title", true)
       .classed("hidden", true)
@@ -147,9 +170,301 @@
       .text("На что тратит деньги Управление разработки?");
 
     var box = svg.append("g")
-      .attr("transform", "translate(0, " + height * 0.2 + ")")
+      .attr("transform", "translate(0, " + height * 0.15 + ")")
       .attr("width", width)
-      .attr("height", height * 0.8)
+      .attr("height", height * 0.85)
+      .classed("expenses__box", true);
+
+      var employeeData = [ [2968, 3526, 4565], [406, 472, 599], [2014, 2015, 2016] ];
+
+      var employeeChart = box.append("g")
+        .attr("width", +box.attr("width"))
+        .attr("height", +box.attr("height"))
+        .classed("chart_employee", true)
+        .classed("hidden", true);
+
+      var x = d3.scaleLinear()
+              .range([0, +employeeChart.attr("width")])
+              .domain([0, employeeData[0].length - 1]);
+
+      var y = d3.scaleLinear()
+              .range([+employeeChart.attr("height"), 0])
+              .domain([0, 4565]);
+
+      var area = d3.area()
+              .curve(d3.curveBasis)
+              .x(function(d, i) { return x(i); })
+              .y0(function(d) { return y(d); })
+              .y1(function(d) { return +employeeChart.attr("height"); });
+
+      employeeChart.append("path")
+              .datum(employeeData[0])
+              .classed("area1", true)
+              .attr("d", area);
+
+      employeeChart.append("path")
+              .datum(employeeData[1])
+              .classed("area2", true)
+              .attr("d", area);
+
+      employeeData[2].forEach(function(year, i) {
+        var ddx = +employeeChart.attr("width") * 0.08;
+        var dx = x(i) + (i == 0 ? ddx : i == 2 ? -ddx : 0);
+
+        var dy1 = y(employeeData[0][i]) + +employeeChart.attr("height") * 0.02;
+        var dy2 = y(employeeData[1][i]) - +employeeChart.attr("height") * 0.02;
+
+        employeeChart.append("text")
+          .attr("transform", "translate(" + dx + ", " + dy1 + ")")
+          .classed("expenses__subbox__value0", true)
+          .style("text-anchor", "middle")
+          .text(employeeData[0][i]);
+
+        employeeChart.append("text")
+          .attr("transform", "translate(" + dx + ", " + dy2 + ")")
+          .classed("expenses__subbox__value0", true)
+          .style("text-anchor", "middle")
+          .text(employeeData[1][i]);
+
+        employeeChart.append("text")
+          .attr("transform", "translate(" + dx + ", " + +employeeChart.attr("height") * 0.98 + ")")
+          .classed("expenses__subbox__value0", true)
+          .style("text-anchor", "middle")
+          .text(year);
+      });
+
+    d3.json("expenses.json", function(error, raw) {
+      if (error) throw error;
+
+      var ratios = {
+        "0.13": ["контуровцев работают", "в Управлении разработки"],
+        "0.38": ["затрат компании", "на питание"],
+        "0.27": ["затрат компании", "на спорт, увлечения и мероприятия"]
+      };
+
+      var subboxes = {};
+      var texts = {};
+      var sum = 0;
+      var h = 0;
+
+      for (var i in raw) { if (raw.hasOwnProperty(i)) {
+        var subbox = box.append("g")
+          .attr("transform", "translate(" + (+box.attr("x") + box.attr("width") * sum) + ", 0)")
+          .attr("width", +box.attr("width") * +i)
+          .attr("height", +box.attr("height"))
+          .classed("hidden", true);
+
+        subbox.append("rect")
+          .attr("x", 0)
+          .attr("y", 0)
+          .attr("width", +subbox.attr("width"))
+          .attr("height", +subbox.attr("height"))
+          .classed("expenses__subbox", true)
+          .classed("expenses__subbox_" + i.replace('.', '_'), true);
+
+        sum += +i;
+        subboxes[i] = subbox;
+      }}
+
+      sum = 0;
+
+      for (i in raw) { if (raw.hasOwnProperty(i)) {
+        var number = +i * 100;
+        var dx = width / 100;
+
+        var text = box.append("text")
+          .attr("transform", "translate(" + (+box.attr("x") + box.attr("width") * sum) + ", 0)")
+          .attr("dy", +subbox.attr("height") * (2 + h) * 0.0475)
+          .style("text-anchor", "start")
+          .classed("hidden", true);
+
+        text.append("tspan")
+          .attr("dx", dx)
+          .classed("expenses__subbox__ratio", true)
+          .attr("x", 0)
+          .text(number + ' %');
+
+        raw[i].forEach(function(value) {
+          text.append("tspan")
+            .attr("dx", dx)
+            .classed("expenses__subbox__value", true)
+            .attr("x", 0)
+            .attr("dy", "1.25em")
+            .text(value);
+        });
+
+        sum += +i;
+        h += 2 + raw[i].length;
+        texts[i] = text;
+      }}
+
+      var ratioLines = {};
+      v = 0;
+
+      for (i in ratios) { if (ratios.hasOwnProperty(i)) {
+        var number = +i * 100;
+
+        var text = box.append("text")
+          .attr("transform", "translate(" + +box.attr("width") * 0.5 + ", " + +box.attr("height") * (v * 0.3) + ")")
+          .attr("dy", +box.attr("height") * 0.05)
+          .style("text-anchor", "middle")
+          .classed("hidden", true);
+
+        text.append("tspan")
+          .attr("dx", dx)
+          .classed("expenses__subbox__ratio", true)
+          .attr("x", 0)
+          .text(number + ' %');
+
+        text.append("tspan")
+          .attr("dx", dx)
+          .classed("expenses__subbox__value", true)
+          .attr("x", 0)
+          .attr("dy", "1.25em")
+          .text(ratios[i][0]);
+
+        text.append("tspan")
+          .attr("dx", dx)
+          .classed("expenses__subbox__value", true)
+          .attr("x", 0)
+          .attr("dy", "1.25em")
+          .text(ratios[i][1]);
+
+        v++;
+        ratioLines[i] = text;
+      }}
+
+      /*var line = d3.line()
+              .curve(d3.curveBasis)
+              .x(function(d, i) { return height2 + x(i); })
+              .y(function(d) { return height1 + y(d); });
+
+      chart.append("path")
+              .datum(months)
+              .attr("class", "line")
+              .attr("d", line);
+
+      months.forEach(function(month, i) {
+          var label = chart.append('text')
+                  .attr('class', 'text' + (i > currentMonth ? ' text_future' : ''))
+                  .attr('x', height2 + x(i))
+                  .attr('y', height1 + height + height2)
+                  .text(1 + i);
+      });*/
+
+      var createFunc = function(k) {
+        return function() {
+          subboxes[k].classed("hidden", false);
+          texts[k].classed("hidden", false);
+        };
+      };
+
+      var createFunc2 = function(k) {
+        return function() {
+          ratioLines[k].classed("hidden", false);
+        };
+      };
+
+      var expensesSteps = [];
+
+      expensesSteps.push(function() {
+        title1.classed("hidden", false);
+      });
+
+      expensesSteps.push(function() {
+        employeeChart.classed("hidden", false);
+      });
+
+      for (i in ratios) { if (ratios.hasOwnProperty(i)) {
+        expensesSteps.push(createFunc2(i));
+      }}
+
+      /*expensesSteps.push(function() {
+        for (i in ratios) { if (ratios.hasOwnProperty(i)) {
+          ratioLines[i].classed("hidden", true);
+        }}
+
+        title1.classed("hidden", true);
+      });
+
+      expensesSteps.push(function() {
+        title2.classed("hidden", false);
+      });
+
+      for (var i in raw) { if (raw.hasOwnProperty(i)) {
+        expensesSteps.push(createFunc(i));
+      }}
+
+      expensesSteps.push(function() {
+        for (i in raw) { if (raw.hasOwnProperty(i)) {
+          subboxes[k].classed("hidden", true);
+          texts[k].classed("hidden", true);
+        }}
+      });
+
+      expensesSteps.push(function() {
+        title2.classed("hidden", true);
+        title1.classed("hidden", false);
+      });*/
+
+      var showExpensesStep = function() {
+        expensesSteps[expensesCounter1]();
+
+        if (expensesCounter1 >= expensesSteps.length - 1) {
+          expensesCounter1 = 0;
+        }
+        else {
+          ++expensesCounter1;
+        }
+      };
+
+      showExpensesStep();
+
+      expensesInterval = setInterval(showExpensesStep, expensesIntervalDelay);
+    });
+  };
+
+  var drawExpensesChart2 = function(show) {
+    if (!show) {
+      d3.select(".chart_expenses2")
+        .classed("chart_hidden", true)
+        .html("");
+
+      expensesCounter2 = 0;
+
+      if (expensesInterval !== undefined) {
+        clearInterval(expensesInterval);
+      }
+
+      return;
+    }
+
+    var svg = d3.select(".chart_expenses2")
+          .classed("chart_hidden", false)
+          .html(""),
+        width = +svg.node().getBoundingClientRect().width,
+        height = +svg.node().getBoundingClientRect().height;
+
+    var title1 = svg.append("text")
+      .attr("dy", height * 0.08)
+      .attr("x", width / 2)
+      .classed("title", true)
+      .classed("hidden", true)
+      .style("text-anchor", "middle")
+      .text("На что тратит деньги компания?");
+
+    var title2 = svg.append("text")
+      .attr("dy", height * 0.08)
+      .attr("x", width / 2)
+      .classed("title", true)
+      .classed("hidden", true)
+      .style("text-anchor", "middle")
+      .text("На что тратит деньги Управление разработки?");
+
+    var box = svg.append("g")
+      .attr("transform", "translate(0, " + height * 0.15 + ")")
+      .attr("width", width)
+      .attr("height", height * 0.85)
       .classed("expenses__box", true);
 
     d3.json("expenses.json", function(error, raw) {
@@ -269,10 +584,10 @@
       var expensesSteps = [];
 
       expensesSteps.push(function() {
-        title1.classed("hidden", false);
+        title2.classed("hidden", false);
       });
 
-      for (i in ratios) { if (ratios.hasOwnProperty(i)) {
+      /*for (i in ratios) { if (ratios.hasOwnProperty(i)) {
         expensesSteps.push(createFunc2(i));
       }}
 
@@ -280,19 +595,19 @@
         for (i in ratios) { if (ratios.hasOwnProperty(i)) {
           ratioLines[i].classed("hidden", true);
         }}
-        
+
         title1.classed("hidden", true);
       });
 
       expensesSteps.push(function() {
         title2.classed("hidden", false);
-      });
+      });*/
 
       for (var i in raw) { if (raw.hasOwnProperty(i)) {
         expensesSteps.push(createFunc(i));
       }}
 
-      expensesSteps.push(function() {
+      /*expensesSteps.push(function() {
         for (i in raw) { if (raw.hasOwnProperty(i)) {
           subboxes[k].classed("hidden", true);
           texts[k].classed("hidden", true);
@@ -302,16 +617,16 @@
       expensesSteps.push(function() {
         title2.classed("hidden", true);
         title1.classed("hidden", false);
-      });
+      });*/
 
       var showExpensesStep = function() {
-        expensesSteps[expensesCounter]();
+        expensesSteps[expensesCounter2]();
 
-        if (expensesCounter >= expensesSteps.length - 1) {
-          expensesCounter = 0;
+        if (expensesCounter2 >= expensesSteps.length - 1) {
+          expensesCounter2 = 0;
         }
         else {
-          ++expensesCounter;
+          ++expensesCounter2;
         }
       };
 
@@ -330,6 +645,8 @@
         .classed("chart_hidden", true)
         .html("");
 
+      bunsCounter = 0;
+
       if (bunsInterval !== undefined) {
         clearInterval(bunsInterval);
       }
@@ -344,17 +661,17 @@
           .html(""),
         width = +svg.node().getBoundingClientRect().width,
         height = +svg.node().getBoundingClientRect().height,
-        g = svg.append("g").attr("transform", "translate(0, " + height * 0.2 + ")");
+        g = svg.append("g").attr("transform", "translate(0, " + height * 0.15 + ")");
 
     var title = svg.append("text")
-      .attr("dy", height * 0.11)
+      .attr("dy", height * 0.08)
       .attr("x", width / 2)
       .classed("title", true)
       .style("text-anchor", "middle")
       .text("Какие плюшки в Управлении разработки?");
 
     var tree = d3.cluster()
-        .size([height * 0.75, width * widthRatio])
+        .size([height * 0.8, width * widthRatio])
         .separation(function(a, b) {
           return a.parent == b.parent ? 2 : 3;
         });
@@ -448,7 +765,8 @@
 
   var redraw = function() {
     var states = [
-      drawExpensesChart,
+      drawExpensesChart1,
+      drawExpensesChart2,
       drawBunsChart
     ];
 
@@ -467,7 +785,7 @@
   document.onkeydown = function(event) {
     event = event || window.event;
 
-    if (event.keyCode == 49 || event.keyCode == 50) {
+    if (event.keyCode == 49 || event.keyCode == 50 || event.keyCode == 51) {
       state = event.keyCode - 49;
 
       redraw();
