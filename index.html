@@ -117,13 +117,48 @@
       fill: #666;
       opacity: 0.5;
     }
+
+    .keys-hint {
+        position: absolute;
+        top: 2vh;
+        right: 2vh;
+    }
+
+    .keys-hint__key {
+        background: #999;
+        opacity: 0.5;
+        border-radius: 1.5vw;
+
+        display: inline-block;
+        margin-left: 1vw;
+        width: 3vw;
+        height: 3vw;
+
+        text-align: center;
+        line-height: 3.25vw;
+        font-size: 15pt;
+        font-weight: bold;
+
+        cursor: pointer;
+    }
+
+    .keys-hint__key_selected {
+        opacity: 1;
+
+        cursor: inherit;
+    }
   </style>
   <script src="https://d3js.org/d3.v4.min.js"></script>
 </head>
 <body>
+  <div class="keys-hint">
+    <div class="keys-hint__key">1</div><div class="keys-hint__key">2</div><div class="keys-hint__key">3</div>
+  </div>
+
   <svg class="chart chart_expenses1"></svg>
   <svg class="chart chart_expenses2"></svg>
   <svg class="chart chart_buns"></svg>
+
   <script>
   var expensesIntervalDelay = 1000;
   var bunsIntervalDelay = 1000;
@@ -131,6 +166,18 @@
   var expensesCounter1 = 0;
   var expensesCounter2 = 0;
   var expensesInterval;
+
+  var drawKeysHint = function() {
+    d3.selectAll('.keys-hint__key')
+      .classed('keys-hint__key_selected', function(_, i) {
+        return i == state;
+      })
+      .on('click', function(_, i) {
+        state = i;
+
+        redraw();
+      });
+  };
 
   var drawExpensesChart1 = function(show) {
     if (!show) {
@@ -775,6 +822,8 @@
     });
 
     states[state](true);
+
+    drawKeysHint();
   };
 
   redraw();
